@@ -60,7 +60,7 @@ This will:
 ### 3. Get Alerts
 
 ```bash
-curl http://localhost:8000/alerts?limit=10
+curl http://localhost:8000/alerts
 ```
 
 ### 4. Add new user

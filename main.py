@@ -7,7 +7,6 @@ This FastAPI application provides three main endpoints:
 3. GET /alerts - Retrieve high-stress alerts from the database
 """
 
-import json
 import psycopg2
 from sqlalchemy import create_engine
 import pandas as pd
@@ -16,9 +15,8 @@ import os
 from datetime import datetime
 import uuid
 from typing import Optional, List
-from decimal import Decimal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sklearn.ensemble import GradientBoostingRegressor
@@ -66,13 +64,6 @@ def get_db_engine():
         f"{os.environ.get('PGDATABASE', 'users')}"
     )
     return create_engine(connection_string)
-
-class DecimalEncoder(json.JSONEncoder):
-    """Custom JSON encoder to handle Decimal types from PostgreSQL"""
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            return float(obj)
-        return super(DecimalEncoder, self).default(obj)
 
 class HighStressDetectionAgent:
     """
