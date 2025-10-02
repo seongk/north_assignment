@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 5
+
+  fastapi:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      PGHOST: postgres
+      PGDATABASE: users
+      PGUSER: postgres
+      PGPASSWORD: example
+      PGPORT: 5432
+      CSV_PATH: /app/university_mental_health_iot_dataset.csv
+    depends_on: [postgres]
+    volumes:
+      - ./university_mental_health_iot_dataset.csv:/app/university_mental_health_iot_dataset.csv
+
+volumes:
+  postgres_data:
+
