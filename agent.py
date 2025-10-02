@@ -22,11 +22,10 @@ class HighStressDetectionAgent:
         self.actions_log: List[dict] = []
         self.model: GradientBoostingRegressor | None = None
         self.scaler: StandardScaler | None = None
-        # remove stress_level so we can predict predicted_stress_level without it as a feature
         self.feature_columns = [
             'temperature_celsius', 'humidity_percent', 'air_quality_index',
             'noise_level_db', 'lighting_lux', 'crowd_density',
-            'sleep_hours', 'mood_score'
+            'stress_level', 'sleep_hours', 'mood_score'
         ]
         self.model_metrics: dict = {}
 
@@ -43,15 +42,23 @@ class HighStressDetectionAgent:
 
     def train_ml_model(self, df: pd.DataFrame):
         """
-        Train a machine learning regression model to predict stress level
+        Train a machine learning regression model to predict mental_health_score.
+        The target is a derived score from available columns in the dataset.
         """
         self.log_action("ML_TRAINING_START", "Training regression model on dataset")
 
         # Prepare features and target
         X = df[self.feature_columns].copy()
 
-        # Target score value is stress_level
-        y = df['stress_level']
+        # Derive mental_health_score as target
+        # Heuristic: combine stress_level and mental_health_status into a 0-100 score
+        # score = 0.7 * stress_level + 15 * mental_health_status (arbitrary weights)
+        # Clip to [0, 100] for stability
+        if 'mental_health_status' not in df.columns:
+            raise ValueError("Column 'mental_health_status' not found in dataset")
+        df['mental_health_score'] = 0.7 * df['stress_level'] + 15 * df['mental_health_status']
+        df['mental_health_score'] = df['mental_health_score'].clip(lower=0, upper=100)
+        y = df['mental_health_score']
 
         # Handle any missing values
         X = X.fillna(X.mean())
@@ -100,8 +107,8 @@ class HighStressDetectionAgent:
 
         return self.model, self.model_metrics
 
-    def predict_stress_level(self, row: pd.Series) -> float:
-        """Use trained ML model to predict mental health score"""
+    def predict_mental_health_score(self, row: pd.Series) -> float:
+        """Predict the derived mental_health_score for a single row."""
         features = np.array([[
             row['temperature_celsius'],
             row['humidity_percent'],
@@ -111,10 +118,11 @@ class HighStressDetectionAgent:
             row['crowd_density'],
             row['sleep_hours'],
             row['mood_score'],
+            row['stress_level'],
         ]])
         features_scaled = self.scaler.transform(features)
         score = self.model.predict(features_scaled)[0]
-        return round(score, 2)
+        return round(float(score), 2)
 
     def process_csv_data(self, csv_path: str) -> pd.DataFrame:
         """Read and process the CSV dataset to identify high-stress students using ML"""
@@ -130,10 +138,10 @@ class HighStressDetectionAgent:
         # Filter for high-stress records (stress_level > threshold)
         high_stress_df = df[df['stress_level'] > self.stress_threshold].copy()
 
-        # Predict stress for filtered records
+        # Predict mental health score for filtered records
         self.log_action("ML_PREDICTION_START", "Predicting mental health scores using trained model")
-        high_stress_df['predicted_stress_level'] = high_stress_df.apply(
-            self.predict_stress_level, axis=1
+        high_stress_df['mental_health_score'] = high_stress_df.apply(
+            self.predict_mental_health_score, axis=1
         )
 
         # Generate unique record IDs
@@ -153,12 +161,10 @@ class HighStressDetectionAgent:
         self.log_action("START_DB_STORAGE", f"Storing {len(high_stress_df)} records")
 
         # Prepare dataframe for DB write
-        df_to_store = high_stress_df.copy()
+        df_to_store = high_stress_df[['record_id', 'timestamp', 'mental_health_score']].copy()
+
         if 'timestamp' in df_to_store.columns:
             df_to_store['timestamp'] = pd.to_datetime(df_to_store['timestamp'])
-        if 'predicted_stress_level' in df_to_store.columns:
-            df_to_store['mental_health_score'] = df_to_store['predicted_stress_level']
-            df_to_store = df_to_store.drop(columns=['predicted_stress_level'])
 
         # Write via SQLAlchemy engine
         df_to_store.to_sql(
