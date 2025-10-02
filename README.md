@@ -18,11 +18,11 @@ Build an agent that meets the following requirements:
  * Since there is a dependency on a postgres database running on docker anyway, I opted to implement my solution using docker-compose.\
    So instead of using the existing lambda function templates, I created a FastAPI app that has routes to the different requirements outlined above.\
    This app is then wrapped into another docker container and the two are linked together using docker-compose.
- * I also interpreted the purpose of the model to infer a "predicted_stress_level"  using the other features in the dataset that's not "stres_level"\
-   So when /process-stress-data is called, the app will train a model to predict the stress level. But then it will use "stress_level" that's already\
+ * I also interpreted the purpose of the model to infer a "mental_health_score"  using the other features. The weights on this initial score to train the model on was pretty arbitrary\
+   So when /process-stress-data is called, the app will train a model to predict the mental_health_score. But then it will use "stress_level" that's already\
    given in the dataset to flag students that are high-stress and store them into the HighStressUsers table in the DB.
  * Normally for database and table management, I would use the `alembic` library to modify the tables and keep track of the changes.\
-   But since this task is relatively small, I'm simply using pandas existing `to_sql` function to write to the database.
+   But since this task is relatively small, I've created the additional tables in the `init.sql` file and wrote to them using pandas `to_sql` function.
 
 
 ## Prerequisites
